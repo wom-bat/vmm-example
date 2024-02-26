@@ -1,0 +1,20 @@
+/{
+	// VMM puts 256Gb RAM at 0x2000000
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00 0x20000000 0x00 0x10000000>;
+	};
+	// We're going to use the passed-through serial device
+        chosen {
+		stdout-path = "serial0:115200n8";
+	        linux,initrd-start = <0x00000000 0x2d700000>;
+	        linux,initrd-end = <0x00000000  0x4500000>;
+		bootargs = "loglevel=8 root=UUID=687ada98-77c2-406d-ae2f-b8a071e057cd rootwait rootfstype=ext4 coherent_pool=2M  earlycon ubootpart=c4d340a8-01 libata.force=noncq usb-storage.quirks=0x2537:0x1066:u,0x2537:0x1068:u    cgroup_enable=memory initcall_debug console=ttyAML0,115200";
+	};
+	sm: secure-monitor {
+	  status = "reserved";
+       };
+       eth_phy: mdio-multiplexer@4c000 {
+          status = "reserved";
+      };
+};
