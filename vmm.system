@@ -2,8 +2,8 @@
 <system>
   <!-- For VM with everything passed through -->
   <!-- Memory regions -->
-  <!-- Guest Ram: 256Gb -->
-  <memory_region name="guest_ram" size="0x10_000_000"  page_size="0x200_000" phys_addr="0x20_000_000" />
+  <!-- Guest Ram: 1Gb -->
+  <memory_region name="guest_ram" size="0x40_000_000"  page_size="0x200_000" phys_addr="0x20_000_000" />
   <memory_region name="bus1" size="0x200000" phys_addr="0xff600000" />
   <memory_region name="bus2" size="0x4000" phys_addr="0xff800000" />
   <memory_region name="bus3" size="0x10000" phys_addr="0xffd00000" />
