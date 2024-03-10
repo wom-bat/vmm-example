@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
+# This Makefile is copied into the build directory
+# and used from there.
 
 ifeq ($(strip $(MICROKIT_SDK)),)
 $(error MICROKIT_SDK must be specified)
@@ -10,6 +12,14 @@ endif
 
 ifeq ($(strip $(LIBGCC)),)
 LIBGCC := $(shell dirname $$(aarch64-none-elf-gcc --print-file-name libgcc.a))
+endif
+
+ifeq ($(strip $(LionsOS)),)
+$(error LionsOS should point to the root of the LionOS source tree)
+endif
+
+ifeq ($(strip $(EXAMPLE_DIR)),)
+$(error EXAMPLE_DIR should contain the name of the directory containing the VMM example)
 endif
 
 MICROKIT_CONFIG ?= debug
@@ -20,6 +30,11 @@ TOOLCHAIN := clang
 CC := clang
 LD := ld.lld
 TARGET := aarch64-none-elf
+
+# Uncomment these lines to use an uninstalled microkit
+#export PYTHONPATH := $(realpath $(MICROKIT_SDK)/../../tool/)
+#MICROKIT_TOOL =  /usr/bin/python3 ${PYTHONPATH}/microkit/__main__.py
+
 MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 DTC := dtc
 
@@ -28,9 +43,9 @@ LIBVMM_DIR := ${LionsOS}/vmm
 
 VMM_IMAGE_DIR := ${EXAMPLE_DIR}/vmm
 LINUX := $(VMM_IMAGE_DIR)/Linux
-INITRD := $(VMM_IMAGE_DIR)/initrd.gz
+INITRD := $(VMM_IMAGE_DIR)/initrd.img
 
-IMAGES := vmm.elf 
+IMAGES := vmm.elf
 CFLAGS := \
 	-mtune=$(CPU) \
 	-mstrict-align \
@@ -46,9 +61,10 @@ CFLAGS := \
 	-I$(LIBVMM_DIR)/src/util \
 	-DBOARD_$(MICROKIT_BOARD) \
 	-I$(SDDF)/include \
+	-MD \
 	-DMAC_BASE_ADDRESS=$(MAC_BASE_ADDRESS)
 
-vpath=${LIBVMM_DIR}:vmm
+#vpath=${LIBVMM_DIR}:vmm
 
 LDFLAGS := -L$(BOARD_DIR)/lib
 LIBS := -lmicrokit -Tmicrokit.ld
@@ -58,16 +74,19 @@ REPORT_FILE := $(BUILD_DIR)/report.txt
 
 VMM_OBJS := vmm.o  package_guest_images.o
 
+
 all: $(IMAGE_FILE)
+
+-include vmm.d
 
 %.dtb: %.dts
 	$(DTC) -q -I dts -O dtb $< > $@
 
-${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB}
-	$(DTC) -q -I dtb -O dts $< > $@
+${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE_LIST}
+	$(DTC) -q -i ${VMM_IMAGE_DIR} -I dtb -O dts $< > $@
 
 dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS}
-	${LionsOS}/vmm/tools/dtscat ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} > $@
+	${LionsOS}/vmm/tools/dtscat ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} | cpp -nostdinc -undef -x assembler-with-cpp -I ${VMM_IMAGE_DIR} -P - > $@
 
 package_guest_images.o: $(LIBVMM_DIR)/tools/package_guest_images.S  $(LINUX) $(INITRD) dtb.dtb
 	$(CC) -c -g3 -x assembler-with-cpp \
@@ -81,11 +100,19 @@ package_guest_images.o: $(LIBVMM_DIR)/tools/package_guest_images.S  $(LINUX) $(I
 vmm.elf: ${VMM_OBJS} libvmm.a
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
-$(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) ${EXAMPLE_DIR}/vmm.system vmm.elf
-	$(MICROKIT_TOOL) ${EXAMPLE_DIR}/vmm.system --search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+vmm.system: ${EXAMPLE_DIR}/vmm.system ${EXAMPLE_DIR}/vmm/vmm_ram.h
+	cpp -P $< -o $@
 
-FORCE: ;
+$(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) vmm.system
+	$(MICROKIT_TOOL) vmm.system --search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+
+FORCE:
+
+clean::
+	rm -f ${VMM_OBJS}
+
+clobber:: clean
+	rm -f vmm.elf vmm.system libvmm.a *.d dtb.dtb dtb.ds ${REPORT} ${IMAGE}
 
 # How to build libvmm.a
 include ${LIBVMM_DIR}/vmm.mk
-

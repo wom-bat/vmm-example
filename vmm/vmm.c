@@ -15,9 +15,8 @@
 #include "tcb.h"
 #include "vcpu.h"
 
-#define GUEST_RAM_SIZE 0x10000000
-#define GUEST_DTB_VADDR 0x2f000000
-#define GUEST_INIT_RAM_DISK_VADDR 0x2d700000
+#include "vmm_ram.h"
+#define GUEST_DTB_VADDR 0x8f000000
 
 // @ivanv: need a more systematic way of choosing this IRQ number?
 /*
@@ -94,9 +93,9 @@ void init(void) {
 
     // // @ivanv minimise
     /* Ethernet */
-    register_passthrough_irq(40, 5);
+    register_passthrough_irq(40, 21);
     /* Ethernet PHY */
-    register_passthrough_irq(96, 6);
+    register_passthrough_irq(41, 22);
     /* panfrost-gpu */
     register_passthrough_irq(192, 7);
     /* panfrost-mmu */
@@ -123,11 +122,8 @@ void init(void) {
     /* serial */
     register_passthrough_irq(225, 20);
     /* GPIO IRQs */
-    for (i = 64, j = 23; i < 72; i++, j++)
+    for (i = 96, j = 23; i < 104; i++, j++)
         register_passthrough_irq(i, j);
-
-    /* MDIO */
-    register_passthrough_irq(9, 31);
 
     /* Finally start the guest */
     guest_start(GUEST_VCPU_ID, kernel_pc, GUEST_DTB_VADDR, GUEST_INIT_RAM_DISK_VADDR);
