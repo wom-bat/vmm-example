@@ -54,6 +54,7 @@ CFLAGS := \
 	-O0 \
 	-Wall \
 	-Wno-unused-function \
+	-I. \
 	-I$(BOARD_DIR)/include \
 	-target $(TARGET) \
 	-I$(LIBVMM_DIR)/src/arch/aarch64 \
@@ -64,7 +65,7 @@ CFLAGS := \
 	-MD \
 	-DMAC_BASE_ADDRESS=$(MAC_BASE_ADDRESS)
 
-#vpath=${LIBVMM_DIR}:vmm
+VPATH:=${LIBVMM_DIR}:${VMM_IMAGE_DIR}
 
 LDFLAGS := -L$(BOARD_DIR)/lib
 LIBS := -lmicrokit -Tmicrokit.ld
@@ -73,8 +74,6 @@ IMAGE_FILE := $(BUILD_DIR)/vmdev.img
 REPORT_FILE := $(BUILD_DIR)/report.txt
 
 VMM_OBJS := vmm.o  package_guest_images.o
-
-
 all: $(IMAGE_FILE)
 
 -include vmm.d
@@ -88,6 +87,7 @@ ${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE_LIST}
 dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} vmm_ram.h
 	${LionsOS}/vmm/tools/dtscat ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} | cpp -nostdinc -undef -x assembler-with-cpp -P - > $@
 
+vmm.o: vmm_ram.h
 package_guest_images.o: $(LIBVMM_DIR)/tools/package_guest_images.S  $(LINUX) $(INITRD) dtb.dtb
 	$(CC) -c -g3 -x assembler-with-cpp \
 					-DGUEST_KERNEL_IMAGE_PATH=\"$(LINUX)\" \
@@ -108,8 +108,8 @@ vmm_ram.h: ${INITRD} ${VMM_IMAGE_DIR}/vmm_ram_input.h ${MAKEFILE}
 vmm.elf: ${VMM_OBJS} libvmm.a
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
-vmm.system: ${EXAMPLE_DIR}/vmm.system vmm_ram.h
-	cpp -nostdinc -x assembler-with-cpp -undef -P $< -o $@
+vmm.system: ${EXAMPLE_DIR}/vmm.system vmm_ram.h ${MAKEFILE}
+	cpp -I. -P ${EXAMPLE_DIR}/vmm.system -o $@
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) vmm.system
 	$(MICROKIT_TOOL) vmm.system --search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
