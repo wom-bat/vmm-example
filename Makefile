@@ -33,8 +33,6 @@ export VMM_IMAGE_DIR := ${EXAMPLE_DIR}/vmm
 export ORIGINAL_DTB := $(VMM_IMAGE_DIR)/meson-sm1-odroid-c4.dtb
 export DT_OVERLAYS := $(VMM_IMAGE_DIR)/overlay.dts
 
-export VPATH=.:${LIBVMM_DIR}:${EXAMPLE_DIR}/vmm
-
 IMAGE_FILE := $(BUILD_DIR)/vmdev.img
 REPORT_FILE := $(BUILD_DIR)/report.txt
 

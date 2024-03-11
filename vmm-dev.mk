@@ -83,10 +83,10 @@ all: $(IMAGE_FILE)
 	$(DTC) -q -I dts -O dtb $< > $@
 
 ${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE_LIST}
-	$(DTC) -q -i ${VMM_IMAGE_DIR} -I dtb -O dts $< > $@
+	$(DTC) -q -I dtb -O dts $< > $@
 
-dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS}
-	${LionsOS}/vmm/tools/dtscat ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} | cpp -nostdinc -undef -x assembler-with-cpp -I ${VMM_IMAGE_DIR} -P - > $@
+dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} vmm_ram.h
+	${LionsOS}/vmm/tools/dtscat ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} | cpp -nostdinc -undef -x assembler-with-cpp -P - > $@
 
 package_guest_images.o: $(LIBVMM_DIR)/tools/package_guest_images.S  $(LINUX) $(INITRD) dtb.dtb
 	$(CC) -c -g3 -x assembler-with-cpp \
@@ -96,12 +96,20 @@ package_guest_images.o: $(LIBVMM_DIR)/tools/package_guest_images.S  $(LINUX) $(I
 					-target $(TARGET) \
 					$< -o $@
 
+vmm_ram.h: ${INITRD} ${VMM_IMAGE_DIR}/vmm_ram_input.h ${MAKEFILE}
+	size=$$(( (($$(stat -c '%s'  ${INITRD}) + 4095 ) / 4096 ) * 4096 )) ;\
+	echo $$size ; \
+	start=$$(sed -n 's/.*GUEST_INIT_RAM_DISK_VADDR.*\(0x[0-9a-fA-F]*\).*/\1/p' ${VMM_IMAGE_DIR}/vmm_ram_input.h ) ;\
+	echo $$start ;\
+	end=$$(printf "0x%x" $$(($$start + $$size)) ) ;\
+	echo $$end ;\
+	sed "s/INITRD_END .*/INITRD_END $${end}/"  ${VMM_IMAGE_DIR}/vmm_ram_input.h > $@
 
 vmm.elf: ${VMM_OBJS} libvmm.a
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
-vmm.system: ${EXAMPLE_DIR}/vmm.system ${EXAMPLE_DIR}/vmm/vmm_ram.h
-	cpp -P $< -o $@
+vmm.system: ${EXAMPLE_DIR}/vmm.system vmm_ram.h
+	cpp -nostdinc -x assembler-with-cpp -undef -P $< -o $@
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) vmm.system
 	$(MICROKIT_TOOL) vmm.system --search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)

@@ -77,16 +77,16 @@ cached="false" /> */
 	<irq irq="225" id="20" trigger="edge" />
 	<!-- Ethernet -->
 	<irq irq="40" id="21"/>
-	<!-- Ethernet PHY -->
-	<irq irq="41" id="22"/>
+	<!-- Ethernet internal PHY: Not used -->
+	/* <irq irq="41" id="22"/> */
 	<!-- GPIO IRQs -->
-	<irq irq="64" id="23" trigger="edge"/>
-	<irq irq="65" id="24" trigger="edge"/>
-	<irq irq="66" id="25" trigger="edge"/>
-	<irq irq="67" id="26" trigger="edge"/>
-	<irq irq="68" id="27" trigger="edge"/>
-	<irq irq="69" id="28" trigger="edge"/>
-	<irq irq="70" id="29" trigger="edge"/>
-	<irq irq="71" id="30" trigger="edge"/>
+	<irq irq="96" id="23" trigger="edge"/>
+	<irq irq="97" id="24" trigger="edge"/>
+	<irq irq="98" id="25" trigger="edge"/>
+	<irq irq="99" id="26" trigger="edge"/>
+	<irq irq="100" id="27" trigger="edge"/>
+	<irq irq="101" id="28" trigger="edge"/>
+	<irq irq="102" id="29" trigger="edge"/>
+	<irq irq="103" id="30" trigger="edge"/>
     </protection_domain>
 </system>
