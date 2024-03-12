@@ -1,5 +1,5 @@
 /*
- * Copyright 2023, UNSW
+ * Copyright 2024x, UNSW
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
@@ -14,6 +14,10 @@
 #include "virq.h"
 #include "tcb.h"
 #include "vcpu.h"
+#include "virtio/virtio.h"
+#include "virtio/console.h"
+#include <sddf/serial/shared_ringbuffer.h>
+
 
 #include "vmm_ram.h"
 #define GUEST_DTB_VADDR 0x8f000000
@@ -41,6 +45,30 @@ uintptr_t guest_ram_vaddr;
 // @ivanv: should be part of libvmm
 #define MAX_IRQ_CH 63
 int passthrough_irq_map[MAX_IRQ_CH];
+
+/*
+ * For the virtual console
+ */
+uintptr_t serial_rx_free;
+uintptr_t serial_rx_used;
+uintptr_t serial_tx_free;
+uintptr_t serial_tx_used;
+
+uintptr_t serial_rx_data;
+uintptr_t serial_tx_data;
+
+ring_handle_t serial_rx_ring;
+ring_handle_t serial_tx_ring;
+
+#define SERIAL_TX_VIRTUALISER_CH 1
+#define SERIAL_RX_VIRTUALISER_CH 2
+
+#define VIRTIO_CONSOLE_IRQ (74)
+#define VIRTIO_CONSOLE_BASE (0x130000)
+#define VIRTIO_CONSOLE_SIZE (0x1000)
+
+static struct virtio_device virtio_console;
+
 
 static void passthrough_device_ack(size_t vcpu_id, int irq, void *cookie) {
     microkit_channel irq_ch = (microkit_channel)(int64_t)cookie;
@@ -120,10 +148,50 @@ void init(void) {
     /* eMMCC */
     register_passthrough_irq(223, 19);
     /* serial */
-    register_passthrough_irq(225, 20);
+//    register_passthrough_irq(225, 20);
     /* GPIO IRQs */
     for (i = 96, j = 23; i < 104; i++, j++)
         register_passthrough_irq(i, j);
+
+    /*
+     * Set up queues for virtual serial
+     */
+    /* Initialise our sDDF ring buffers for the serial device */
+    ring_init(&serial_rx_ring, (ring_buffer_t *)serial_rx_free, (ring_buffer_t *)serial_rx_used, true, NUM_BUFFERS, NUM_BUFFERS);
+    for (int i = 0; i < NUM_BUFFERS - 1; i++) {
+        int ret = enqueue_free(&serial_rx_ring, serial_rx_data + (i * BUFFER_SIZE), BUFFER_SIZE, NULL);
+        if (ret != 0) {
+            microkit_dbg_puts(microkit_name);
+            microkit_dbg_puts(": server rx buffer population, unable to enqueue buffer\n");
+        }
+    }
+    ring_init(&serial_tx_ring, (ring_buffer_t *)serial_tx_free, (ring_buffer_t *)serial_tx_used, true, NUM_BUFFERS, NUM_BUFFERS);
+    for (int i = 0; i < NUM_BUFFERS - 1; i++) {
+        // Have to start at the memory region left of by the rx ring
+        int ret = enqueue_free(&serial_tx_ring, serial_tx_data + ((i + NUM_BUFFERS) * BUFFER_SIZE), BUFFER_SIZE, NULL);
+        assert(ret == 0);
+        if (ret != 0) {
+            microkit_dbg_puts(microkit_name);
+            microkit_dbg_puts(": server tx buffer population, unable to enqueue buffer\n");
+        }
+    }
+
+    /*
+     * Neither ring should be plugged and hence all buffers we send
+     * should actually end up at the driver.
+     */
+    assert(!ring_plugged(serial_tx_ring.free_ring));
+    assert(!ring_plugged(serial_tx_ring.used_ring));
+
+    /* Initialise virtIO console device */
+    success = virtio_mmio_device_init(&virtio_console, CONSOLE,
+                                      VIRTIO_CONSOLE_BASE, VIRTIO_CONSOLE_SIZE,
+                                      VIRTIO_CONSOLE_IRQ,
+                                      &serial_rx_ring, &serial_tx_ring,
+                                      SERIAL_TX_VIRTUALISER_CH
+        );
+    assert(success);
+    
 
     /* Finally start the guest */
     guest_start(GUEST_VCPU_ID, kernel_pc, GUEST_DTB_VADDR, GUEST_INIT_RAM_DISK_VADDR);
@@ -131,15 +199,19 @@ void init(void) {
 
 void notified(microkit_channel ch) {
     switch (ch) {
-        default:
-            if (passthrough_irq_map[ch]) {
-                bool success = vgic_inject_irq(GUEST_VCPU_ID, passthrough_irq_map[ch]);
-                if (!success) {
-                    LOG_VMM_ERR("IRQ %d dropped on vCPU %d\n", passthrough_irq_map[ch], GUEST_VCPU_ID);
-                }
-                break;
+    case SERIAL_RX_VIRTUALISER_CH: {
+        virtio_console_handle_rx(&virtio_console);
+        break;
+    }
+    default:
+        if (passthrough_irq_map[ch]) {
+            bool success = vgic_inject_irq(GUEST_VCPU_ID, passthrough_irq_map[ch]);
+            if (!success) {
+                LOG_VMM_ERR("IRQ %d dropped on vCPU %d\n", passthrough_irq_map[ch], GUEST_VCPU_ID);
             }
-            printf("Unexpected channel, ch: 0x%lx\n", ch);
+            break;
+        }
+        printf("Unexpected channel, ch: 0x%lx\n", ch);
     }
 }
 
@@ -150,8 +222,7 @@ void notified(microkit_channel ch) {
  */
 void fault(microkit_id id, microkit_msginfo msginfo) {
     bool success = fault_handle(id, msginfo);
-    if (success) {
-        /* Now that we have handled the fault successfully, we reply to it so
+    if (success) {        /* Now that we have handled the fault successfully, we reply to it so
          * that the guest can resume execution. */
         microkit_fault_reply(microkit_msginfo_new(0, 0));
     }

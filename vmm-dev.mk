@@ -45,7 +45,7 @@ VMM_IMAGE_DIR := ${EXAMPLE_DIR}/vmm
 LINUX := $(VMM_IMAGE_DIR)/Linux
 INITRD := $(VMM_IMAGE_DIR)/initrd.img
 
-IMAGES := vmm.elf
+IMAGES := vmm.elf uart_driver.elf serial_RX_virtualiser.elf serial_TX_virtualiser.elf
 CFLAGS := \
 	-mtune=$(CPU) \
 	-mstrict-align \
@@ -66,6 +66,8 @@ CFLAGS := \
 	-DMAC_BASE_ADDRESS=$(MAC_BASE_ADDRESS)
 
 VPATH:=${LIBVMM_DIR}:${VMM_IMAGE_DIR}
+# we have only one client
+SERIAL_NUM_CLIENTS := -DSERIAL_NUM_CLIENTS=1
 
 LDFLAGS := -L$(BOARD_DIR)/lib
 LIBS := -lmicrokit -Tmicrokit.ld
@@ -73,7 +75,7 @@ LIBS := -lmicrokit -Tmicrokit.ld
 IMAGE_FILE := $(BUILD_DIR)/vmdev.img
 REPORT_FILE := $(BUILD_DIR)/report.txt
 
-VMM_OBJS := vmm.o  package_guest_images.o
+VMM_OBJS := vmm.o  package_guest_images.o sddf_serial_sharedringbuffer.o
 all: $(IMAGE_FILE)
 
 -include vmm.d
@@ -124,3 +126,7 @@ clobber:: clean
 
 # How to build libvmm.a
 include ${LIBVMM_DIR}/vmm.mk
+# the UART driver
+include ${SDDF}/drivers/serial/meson/uart.mk
+# the multiplexers
+include ${SDDF}/serial/components/serial_components.mk

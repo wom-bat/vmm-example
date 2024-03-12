@@ -22,6 +22,7 @@
  */
 #define INITRD_END 0x8ee00000
 
+#define VIRTIO_SERIAL_ADDR 0x130000
 
 
 #define stringise(x) #x
