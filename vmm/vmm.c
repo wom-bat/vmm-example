@@ -63,9 +63,6 @@ ring_handle_t serial_tx_ring;
 #define SERIAL_TX_VIRTUALISER_CH 1
 #define SERIAL_RX_VIRTUALISER_CH 2
 
-#define VIRTIO_CONSOLE_IRQ (74)
-#define VIRTIO_CONSOLE_BASE (0x130000)
-#define VIRTIO_CONSOLE_SIZE (0x1000)
 
 static struct virtio_device virtio_console;
 
@@ -167,7 +164,6 @@ void init(void) {
     }
     ring_init(&serial_tx_ring, (ring_buffer_t *)serial_tx_free, (ring_buffer_t *)serial_tx_used, true, NUM_BUFFERS, NUM_BUFFERS);
     for (int i = 0; i < NUM_BUFFERS - 1; i++) {
-        // Have to start at the memory region left of by the rx ring
         int ret = enqueue_free(&serial_tx_ring, serial_tx_data + (i * BUFFER_SIZE), BUFFER_SIZE, NULL);
         assert(ret == 0);
         if (ret != 0) {
