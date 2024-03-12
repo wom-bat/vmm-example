@@ -178,7 +178,7 @@ cached="false" /> */
 
     <map mr="serial_tx_free_VMM" vaddr=SERIAL_TX_FREE_VMM perms="rw" cached="true" setvar_vaddr="tx_free_client" />
     <map mr="serial_tx_used_VMM" vaddr=SERIAL_TX_USED_VMM perms="rw" cached="true" setvar_vaddr="tx_used_client" />
-    <map mr="serial_tx_data_driver" vaddr="0x50_000_000" perms="rw" cached="true" setvar_vaddr="tx_data_driver" />
+    <map mr="serial_tx_data_driver" vaddr=SERIAL_TX_DATA_DRIVER perms="rw" cached="true" setvar_vaddr="tx_data_driver" />
     <map mr="serial_tx_data_VMM" vaddr=SERIAL_TX_DATA_VMM perms="rw" cached="true" setvar_vaddr="tx_data_client" />
   </protection_domain>
 
