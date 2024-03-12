@@ -168,14 +168,13 @@ void init(void) {
     ring_init(&serial_tx_ring, (ring_buffer_t *)serial_tx_free, (ring_buffer_t *)serial_tx_used, true, NUM_BUFFERS, NUM_BUFFERS);
     for (int i = 0; i < NUM_BUFFERS - 1; i++) {
         // Have to start at the memory region left of by the rx ring
-        int ret = enqueue_free(&serial_tx_ring, serial_tx_data + ((i + NUM_BUFFERS) * BUFFER_SIZE), BUFFER_SIZE, NULL);
+        int ret = enqueue_free(&serial_tx_ring, serial_tx_data + (i * BUFFER_SIZE), BUFFER_SIZE, NULL);
         assert(ret == 0);
         if (ret != 0) {
             microkit_dbg_puts(microkit_name);
             microkit_dbg_puts(": server tx buffer population, unable to enqueue buffer\n");
         }
     }
-
     /*
      * Neither ring should be plugged and hence all buffers we send
      * should actually end up at the driver.
