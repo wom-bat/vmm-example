@@ -18,6 +18,10 @@ ifeq ($(strip $(LionsOS)),)
 $(error LionsOS should point to the root of the LionOS source tree)
 endif
 
+ifeq ($(strip $(SDDF)),)
+$(error SDDF should point to the root of the sDDF source tree)
+endif
+
 ifeq ($(strip $(EXAMPLE_DIR)),)
 $(error EXAMPLE_DIR should contain the name of the directory containing the VMM example)
 endif
@@ -75,7 +79,7 @@ LIBS := -lmicrokit -Tmicrokit.ld
 IMAGE_FILE := $(BUILD_DIR)/vmdev.img
 REPORT_FILE := $(BUILD_DIR)/report.txt
 
-VMM_OBJS := vmm.o  package_guest_images.o sddf_serial_sharedringbuffer.o
+VMM_OBJS := vmm.o  package_guest_images.o
 all: $(IMAGE_FILE)
 
 -include vmm.d

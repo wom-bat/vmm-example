@@ -1,5 +1,5 @@
 /*
- * Copyright 2024x, UNSW
+ * Copyright 2024, UNSW
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
@@ -16,7 +16,7 @@
 #include "vcpu.h"
 #include "virtio/virtio.h"
 #include "virtio/console.h"
-#include <sddf/serial/shared_ringbuffer.h>
+#include <sddf/serial/queue.h>
 
 
 #include "vmm_ram.h"
@@ -50,15 +50,15 @@ int passthrough_irq_map[MAX_IRQ_CH];
  * For the virtual console
  */
 uintptr_t serial_rx_free;
-uintptr_t serial_rx_used;
+uintptr_t serial_rx_active;
 uintptr_t serial_tx_free;
-uintptr_t serial_tx_used;
+uintptr_t serial_tx_active;
 
 uintptr_t serial_rx_data;
 uintptr_t serial_tx_data;
 
-ring_handle_t serial_rx_ring;
-ring_handle_t serial_tx_ring;
+serial_queue_handle_t serial_rx_serial_queue;
+serial_queue_handle_t serial_tx_serial_queue;
 
 #define SERIAL_TX_VIRTUALISER_CH 1
 #define SERIAL_RX_VIRTUALISER_CH 2
@@ -153,18 +153,20 @@ void init(void) {
     /*
      * Set up queues for virtual serial
      */
-    /* Initialise our sDDF ring buffers for the serial device */
-    ring_init(&serial_rx_ring, (ring_buffer_t *)serial_rx_free, (ring_buffer_t *)serial_rx_used, true, NUM_BUFFERS, NUM_BUFFERS);
-    for (int i = 0; i < NUM_BUFFERS - 1; i++) {
-        int ret = enqueue_free(&serial_rx_ring, serial_rx_data + (i * BUFFER_SIZE), BUFFER_SIZE, NULL);
+    /* Initialise our sDDF queue buffers for the serial device */
+    serial_queue_init(&serial_rx_serial_queue, (serial_queue_t *)serial_rx_free,
+                      (serial_queue_t *)serial_rx_active, true, NUM_ENTRIES, NUM_ENTRIES);
+    for (int i = 0; i < NUM_ENTRIES - 1; i++) {
+        int ret = serial_enqueue_free(&serial_rx_serial_queue, serial_rx_data + (i * BUFFER_SIZE), BUFFER_SIZE);
         if (ret != 0) {
             microkit_dbg_puts(microkit_name);
             microkit_dbg_puts(": server rx buffer population, unable to enqueue buffer\n");
         }
     }
-    ring_init(&serial_tx_ring, (ring_buffer_t *)serial_tx_free, (ring_buffer_t *)serial_tx_used, true, NUM_BUFFERS, NUM_BUFFERS);
-    for (int i = 0; i < NUM_BUFFERS - 1; i++) {
-        int ret = enqueue_free(&serial_tx_ring, serial_tx_data + (i * BUFFER_SIZE), BUFFER_SIZE, NULL);
+    serial_queue_init(&serial_tx_serial_queue, (serial_queue_t *)serial_tx_free,
+                      (serial_queue_t *)serial_tx_active, true, NUM_ENTRIES, NUM_ENTRIES);
+    for (int i = 0; i < NUM_ENTRIES - 1; i++) {
+        int ret = serial_enqueue_free(&serial_tx_serial_queue, serial_tx_data + (i * BUFFER_SIZE), BUFFER_SIZE);
         assert(ret == 0);
         if (ret != 0) {
             microkit_dbg_puts(microkit_name);
@@ -172,21 +174,21 @@ void init(void) {
         }
     }
     /*
-     * Neither ring should be plugged and hence all buffers we send
+     * Neither queue should be plugged and hence all buffers we send
      * should actually end up at the driver.
      */
-    assert(!ring_plugged(serial_tx_ring.free_ring));
-    assert(!ring_plugged(serial_tx_ring.used_ring));
+    assert(!serial_queue_plugged(serial_tx_serial_queue.free));
+    assert(!serial_queue_plugged(serial_tx_serial_queue.active));
 
     /* Initialise virtIO console device */
     success = virtio_mmio_device_init(&virtio_console, CONSOLE,
                                       VIRTIO_CONSOLE_BASE, VIRTIO_CONSOLE_SIZE,
                                       VIRTIO_CONSOLE_IRQ,
-                                      &serial_rx_ring, &serial_tx_ring,
+                                      &serial_rx_serial_queue, &serial_tx_serial_queue,
                                       SERIAL_TX_VIRTUALISER_CH
         );
     assert(success);
-    
+
 
     /* Finally start the guest */
     guest_start(GUEST_VCPU_ID, kernel_pc, GUEST_DTB_VADDR, GUEST_INIT_RAM_DISK_VADDR);
@@ -211,14 +213,17 @@ void notified(microkit_channel ch) {
 }
 
 /*
- * The primary purpose of the VMM after initialisation is to act as a fault-handler,
- * whenever our guest causes an exception, it gets delivered to this entry point for
- * the VMM to handle.
+ * The primary purpose of the VMM after initialisation is to act as a
+ * fault-handler. Whenever our guest causes an exception, it gets
+ * delivered to this entry point for the VMM to handle.
  */
 void fault(microkit_id id, microkit_msginfo msginfo) {
     bool success = fault_handle(id, msginfo);
-    if (success) {        /* Now that we have handled the fault successfully, we reply to it so
-         * that the guest can resume execution. */
+    if (success) {
+        /*
+         * Now that we have handled the fault successfully, we reply to it so
+         * that the guest can resume execution.
+         */
         microkit_fault_reply(microkit_msginfo_new(0, 0));
     }
 }

@@ -40,16 +40,16 @@
   * Memory regions assigned by tool from RAM
   */
   /*
-   * Regions for the shared ring buffers used by the Serial driver and
+   * Regions for the shared queues used by the Serial driver and
    * virtualiser
    */
   <memory_region name="serial_rx_free_driver" size="0x200_000"
 		 page_size="0x200_000"/>
-  <memory_region name="serial_rx_used_driver" size="0x200_000"
+  <memory_region name="serial_rx_active_driver" size="0x200_000"
 		 page_size="0x200_000"/>
   <memory_region name="serial_tx_free_driver" size="0x200_000"
 		 page_size="0x200_000"/>
-  <memory_region name="serial_tx_used_driver" size="0x200_000"
+  <memory_region name="serial_tx_active_driver" size="0x200_000"
 		 page_size="0x200_000"/>
   <memory_region name="serial_tx_data_driver" size="0x200_000"
     page_size="0x200_000"/>
@@ -62,11 +62,11 @@
    
    <memory_region name="serial_rx_free_VMM" size="0x200_000"
 		  page_size="0x200_000"/>
-   <memory_region name="serial_rx_used_VMM" size="0x200_000"
+   <memory_region name="serial_rx_active_VMM" size="0x200_000"
 		  page_size="0x200_000"/>
    <memory_region name="serial_tx_free_VMM" size="0x200_000"
 		  page_size="0x200_000"/>
-   <memory_region name="serial_tx_used_VMM" size="0x200_000"
+   <memory_region name="serial_tx_active_VMM" size="0x200_000"
 		  page_size="0x200_000"/>
    <memory_region name="serial_rx_data_VMM" size="0x200_000"
 		  page_size="0x200_000"/>
@@ -103,12 +103,12 @@ cached="false" /> */
     <!-- Regions for virtio Console -->
     <map mr="serial_rx_free_VMM" vaddr=SERIAL_RX_FREE_VMM perms="rw"
 	 cached="true" setvar_vaddr="serial_rx_free"/>
-    <map mr="serial_rx_used_VMM" vaddr=SERIAL_RX_USED_VMM perms="rw"
-	 cached="true" setvar_vaddr="serial_rx_used"/>
+    <map mr="serial_rx_active_VMM" vaddr=SERIAL_RX_ACTIVE_VMM perms="rw"
+	 cached="true" setvar_vaddr="serial_rx_active"/>
     <map mr="serial_tx_free_VMM" vaddr=SERIAL_TX_FREE_VMM perms="rw"
 	 cached="true" setvar_vaddr="serial_tx_free"/>
-    <map mr="serial_tx_used_VMM" vaddr=SERIAL_TX_USED_VMM perms="rw"
-	 cached="true" setvar_vaddr="serial_tx_used"/>
+    <map mr="serial_tx_active_VMM" vaddr=SERIAL_TX_ACTIVE_VMM perms="rw"
+	 cached="true" setvar_vaddr="serial_tx_active"/>
     <map mr="serial_rx_data_VMM" vaddr=SERIAL_RX_DATA_VMM perms="rw"
 	 cached="true" setvar_vaddr="serial_rx_data"/>
     <map mr="serial_tx_data_VMM" vaddr=SERIAL_TX_DATA_VMM perms="rw"
@@ -159,9 +159,9 @@ cached="false" /> */
 
     <map mr="uart" vaddr="0xff803000" perms="rw" cached="false" setvar_vaddr="uart_base"/>
     <map mr="serial_rx_free_driver" vaddr=SERIAL_RX_FREE_DRIVER perms="rw" cached="true" setvar_vaddr="rx_free" />
-    <map mr="serial_rx_used_driver" vaddr=SERIAL_RX_USED_DRIVER perms="rw" cached="true" setvar_vaddr="rx_used" />
+    <map mr="serial_rx_active_driver" vaddr=SERIAL_RX_ACTIVE_DRIVER perms="rw" cached="true" setvar_vaddr="rx_active" />
     <map mr="serial_tx_free_driver" vaddr=SERIAL_TX_FREE_DRIVER perms="rw" cached="true" setvar_vaddr="tx_free" />
-    <map mr="serial_tx_used_driver" vaddr=SERIAL_TX_USED_DRIVER perms="rw" cached="true" setvar_vaddr="tx_used" />
+    <map mr="serial_tx_active_driver" vaddr=SERIAL_TX_ACTIVE_DRIVER perms="rw" cached="true" setvar_vaddr="tx_active" />
     <map mr="serial_tx_data_driver" vaddr=SERIAL_TX_DATA_DRIVER perms="rw" cached="true" />
     <map mr="serial_rx_data_driver" vaddr=SERIAL_RX_DATA_DRIVER perms="rw" cached="true" />
 
@@ -174,10 +174,10 @@ cached="false" /> */
 
     <map mr="serial_tx_free_driver" vaddr=SERIAL_TX_FREE_DRIVER perms="rw"
 	 cached="true" setvar_vaddr="tx_free_driver" />
-    <map mr="serial_tx_used_driver" vaddr=SERIAL_TX_USED_DRIVER perms="rw" cached="true" setvar_vaddr="tx_used_driver" />
+    <map mr="serial_tx_active_driver" vaddr=SERIAL_TX_ACTIVE_DRIVER perms="rw" cached="true" setvar_vaddr="tx_active_driver" />
 
     <map mr="serial_tx_free_VMM" vaddr=SERIAL_TX_FREE_VMM perms="rw" cached="true" setvar_vaddr="tx_free_client" />
-    <map mr="serial_tx_used_VMM" vaddr=SERIAL_TX_USED_VMM perms="rw" cached="true" setvar_vaddr="tx_used_client" />
+    <map mr="serial_tx_active_VMM" vaddr=SERIAL_TX_ACTIVE_VMM perms="rw" cached="true" setvar_vaddr="tx_active_client" />
     <map mr="serial_tx_data_driver" vaddr=SERIAL_TX_DATA_DRIVER perms="rw" cached="true" setvar_vaddr="tx_data_driver" />
     <map mr="serial_tx_data_VMM" vaddr=SERIAL_TX_DATA_VMM perms="rw" cached="true" setvar_vaddr="tx_data_client" />
   </protection_domain>
@@ -186,10 +186,10 @@ cached="false" /> */
     <program_image path="serial_RX_virtualiser.elf" />
 
     <map mr="serial_rx_free_driver" vaddr=SERIAL_RX_FREE_DRIVER perms="rw" cached="true" setvar_vaddr="rx_free_driver" />
-    <map mr="serial_rx_used_driver" vaddr=SERIAL_RX_USED_DRIVER perms="rw" cached="true" setvar_vaddr="rx_used_driver" />
+    <map mr="serial_rx_active_driver" vaddr=SERIAL_RX_ACTIVE_DRIVER perms="rw" cached="true" setvar_vaddr="rx_active_driver" />
 
     <map mr="serial_rx_free_VMM" vaddr=SERIAL_RX_FREE_VMM perms="rw" cached="true" setvar_vaddr="rx_free_client" />
-    <map mr="serial_rx_used_VMM" vaddr=SERIAL_RX_USED_VMM perms="rw" cached="true" setvar_vaddr="rx_used_client" />
+    <map mr="serial_rx_active_VMM" vaddr=SERIAL_RX_ACTIVE_VMM perms="rw" cached="true" setvar_vaddr="rx_active_client" />
 
     <map mr="serial_rx_data_driver" vaddr=SERIAL_RX_DATA_DRIVER perms="rw" cached="true" setvar_vaddr="rx_data_driver" />
     <map mr="serial_rx_data_VMM" vaddr=SERIAL_RX_DATA_VMM perms="rw" cached="true" setvar_vaddr="rx_data_client" />
