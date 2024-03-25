@@ -18,6 +18,10 @@ ifeq ($(strip $(LionsOS)),)
 $(error LionsOS should point to the root of the LionOS source tree)
 endif
 
+ifeq ($(strip $(SDDF)),)
+$(error SDDF should point to the root of the sDDF source tree)
+endif
+
 ifeq ($(strip $(EXAMPLE_DIR)),)
 $(error EXAMPLE_DIR should contain the name of the directory containing the VMM example)
 endif
@@ -30,6 +34,7 @@ TOOLCHAIN := clang
 CC := clang
 LD := ld.lld
 TARGET := aarch64-none-elf
+
 CHECK_VARIANT:=.variant.$(shell md5sum ${SYSTEM})
 .variant.%:
 	-rm -f .variant.*
@@ -48,8 +53,9 @@ LIBVMM_DIR ?= ${LionsOS}/libvmm
 VMM_IMAGE_DIR := ${EXAMPLE_DIR}/vmm
 LINUX := $(VMM_IMAGE_DIR)/Linux
 INITRD := $(VMM_IMAGE_DIR)/initrd.img
+DT_OVERLAYS := ${VMM_IMAGE_DIR}/overlay-virtcon.dts
 
-IMAGES := vmm.elf
+IMAGES := vmm.elf uart_driver.elf serial_RX_virtualiser.elf serial_TX_virtualiser.elf
 CFLAGS := \
 	-mtune=$(CPU) \
 	-mstrict-align \
@@ -70,6 +76,8 @@ CFLAGS := \
 	-DMAC_BASE_ADDRESS=$(MAC_BASE_ADDRESS)
 
 VPATH:=${LIBVMM_DIR}:${VMM_IMAGE_DIR}
+# we have only one client
+SERIAL_NUM_CLIENTS := -DSERIAL_NUM_CLIENTS=1
 
 LDFLAGS := -L$(BOARD_DIR)/lib
 LIBS := -lmicrokit -Tmicrokit.ld
@@ -77,10 +85,10 @@ LIBS := -lmicrokit -Tmicrokit.ld
 IMAGE_FILE := $(BUILD_DIR)/vmdev.img
 REPORT_FILE := $(BUILD_DIR)/report.txt
 
-VMM_OBJS := vmm.o  package_guest_images.o
+VMM_OBJS := vmm-virtio-console.o  package_guest_images.o
 all: $(IMAGE_FILE)
 
--include vmm.d
+-include vmm-virtio-console.d
 
 %.dtb: %.dts
 	$(DTC) -q -I dts -O dtb $< > $@ || rm -f $@
@@ -88,10 +96,9 @@ all: $(IMAGE_FILE)
 ${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE_LIST}
 	$(DTC) -q -I dtb -O dts $< > $@ || rm -f $@
 
-dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} vmm_ram.h ${CHECK_VARIANT}
+dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} vmm_ram.h
 	${LIBVMM_DIR}/tools/dtscat ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} | cpp -nostdinc -undef -x assembler-with-cpp -P - > $@ || rm -f $@
 
-vmm.o: vmm_ram.h
 package_guest_images.o: $(LIBVMM_DIR)/tools/package_guest_images.S  $(LINUX) $(INITRD) dtb.dtb
 	$(CC) -c -g3 -x assembler-with-cpp \
 					-DGUEST_KERNEL_IMAGE_PATH=\"$(LINUX)\" \
@@ -100,20 +107,20 @@ package_guest_images.o: $(LIBVMM_DIR)/tools/package_guest_images.S  $(LINUX) $(I
 					-target $(TARGET) \
 					$< -o $@
 
-vmm_ram.h: ${INITRD} ${VMM_IMAGE_DIR}/vmm_ram_input.h ${MAKEFILE}
+vmm_ram.h: ${INITRD} ${VMM_IMAGE_DIR}/vmm_ram_input_virtcon.h ${MAKEFILE} ${CHECK_VARIANT}
 	size=$$(( (($$(stat -c '%s'  ${INITRD}) + 4095 ) / 4096 ) * 4096 )) ;\
 	echo $$size ; \
-	start=$$(sed -n 's/.*GUEST_INIT_RAM_DISK_VADDR.*\(0x[0-9a-fA-F]*\).*/\1/p' ${VMM_IMAGE_DIR}/vmm_ram_input.h ) ;\
+	start=$$(sed -n 's/.*GUEST_INIT_RAM_DISK_VADDR.*\(0x[0-9a-fA-F]*\).*/\1/p' ${VMM_IMAGE_DIR}/vmm_ram_input_virtcon.h ) ;\
 	echo $$start ;\
 	end=$$(printf "0x%x" $$(($$start + $$size)) ) ;\
 	echo $$end ;\
-	sed "s/INITRD_END .*/INITRD_END $${end}/"  ${VMM_IMAGE_DIR}/vmm_ram_input.h > $@
+	sed "s/INITRD_END .*/INITRD_END $${end}/"  ${VMM_IMAGE_DIR}/vmm_ram_input_virtcon.h > $@
 
 vmm.elf: ${VMM_OBJS} libvmm.a
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 vmm.system: ${SYSTEM} vmm_ram.h ${MAKEFILE} ${CHECK_VARIANT}
-	cpp -I. -P ${EXAMPLE_DIR}/vmm.system -o $@
+	cpp -I. -P ${SYSTEM} -o $@
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) vmm.system
 	$(MICROKIT_TOOL) vmm.system --search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
@@ -124,7 +131,11 @@ clean::
 	rm -f ${VMM_OBJS}
 
 clobber:: clean
-	rm -f vmm.elf vmm.system libvmm.a *.d dtb.dtb dtb.ds ${REPORT} ${IMAGE}
+	rm -f ${IMAGES} vmm.system libvmm.a *.d dtb.dtb dtb.ds ${REPORT} ${IMAGE}
 
 # How to build libvmm.a
 include ${LIBVMM_DIR}/vmm.mk
+# the UART driver
+include ${SDDF}/drivers/serial/meson/uart.mk
+# the multiplexers
+include ${SDDF}/serial/components/serial_components.mk
