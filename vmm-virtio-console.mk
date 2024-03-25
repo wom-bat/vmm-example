@@ -55,7 +55,7 @@ LINUX := $(VMM_IMAGE_DIR)/Linux
 INITRD := $(VMM_IMAGE_DIR)/initrd.img
 DT_OVERLAYS := ${VMM_IMAGE_DIR}/overlay-virtcon.dts
 
-IMAGES := vmm.elf uart_driver.elf serial_RX_virtualiser.elf serial_TX_virtualiser.elf
+IMAGES := vmm.elf uart_driver.elf serial_rx_virt.elf serial_tx_virt.elf 
 CFLAGS := \
 	-mtune=$(CPU) \
 	-mstrict-align \
@@ -93,7 +93,7 @@ all: $(IMAGE_FILE)
 %.dtb: %.dts
 	$(DTC) -q -I dts -O dtb $< > $@ || rm -f $@
 
-${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE_LIST}
+${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE}
 	$(DTC) -q -I dtb -O dts $< > $@ || rm -f $@
 
 dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} vmm_ram.h

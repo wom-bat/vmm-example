@@ -85,7 +85,7 @@ all: $(IMAGE_FILE)
 %.dtb: %.dts
 	$(DTC) -q -I dts -O dtb $< > $@ || rm -f $@
 
-${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE_LIST}
+${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE}
 	$(DTC) -q -I dtb -O dts $< > $@ || rm -f $@
 
 dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} vmm_ram.h ${CHECK_VARIANT}
