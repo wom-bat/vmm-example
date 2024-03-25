@@ -39,7 +39,7 @@ MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 DTC := dtc
 
 BOARD_DIR := $(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
-LIBVMM_DIR := ${LionsOS}/vmm
+LIBVMM_DIR ?= ${LionsOS}/libvmm
 
 VMM_IMAGE_DIR := ${EXAMPLE_DIR}/vmm
 LINUX := $(VMM_IMAGE_DIR)/Linux
@@ -79,13 +79,13 @@ all: $(IMAGE_FILE)
 -include vmm.d
 
 %.dtb: %.dts
-	$(DTC) -q -I dts -O dtb $< > $@
+	$(DTC) -q -I dts -O dtb $< > $@ || rm -f $@
 
 ${notdir $(ORIGINAL_DTB:.dtb=.dts)}: ${ORIGINAL_DTB} ${MAKEFILE_LIST}
-	$(DTC) -q -I dtb -O dts $< > $@
+	$(DTC) -q -I dtb -O dts $< > $@ || rm -f $@
 
 dtb.dts: ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} vmm_ram.h
-	${LionsOS}/vmm/tools/dtscat ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} | cpp -nostdinc -undef -x assembler-with-cpp -P - > $@
+	${LIBVMM_DIR}/tools/dtscat ${notdir $(ORIGINAL_DTB:.dtb=.dts)} ${DT_OVERLAYS} | cpp -nostdinc -undef -x assembler-with-cpp -P - > $@ || rm -f $@
 
 vmm.o: vmm_ram.h
 package_guest_images.o: $(LIBVMM_DIR)/tools/package_guest_images.S  $(LINUX) $(INITRD) dtb.dtb

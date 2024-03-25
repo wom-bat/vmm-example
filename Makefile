@@ -13,8 +13,10 @@ LIBGCC := $(shell dirname $$(aarch64-none-elf-gcc --print-file-name libgcc.a))
 endif
 
 export EXAMPLE_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-export LionsOS ?= $(realpath ../LionsOS)
-
+LionsOS ?= $(realpath ../LionsOS)
+export MICROKIT_SDK := $(realpath ${MICROKIT_SDK})
+export LionsOS := $(realpath ${LionsOS})
+export SDDF := ${LionsOS}/sddf
 export MICROKIT_CONFIG ?= debug
 export BUILD_DIR ?= $(abspath build)
 export MICROKIT_BOARD := odroidc4
