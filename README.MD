@@ -4,6 +4,8 @@ Simple VM with passthrough
 This directory contains what's needed to run a complete VM with
 passthrough of all components on an Odroid C4.
 
+The ethernetsddf branch uses LionsOS console drivers.
+
 Such a VM can be used to develop new LionsOS components, and is fairly
 easy to adapt to other systems.
 
@@ -46,7 +48,8 @@ You can use the prebuilt microkit from
 
 If you choose to build your own.  At the moment, 
 the microkit from [Ivan Velickovic's
-repository](https://github.com/Ivan-Velickovic/microkit) is the one to use.
+repository](https://github.com/Ivan-Velickovic/microkit) on the dev
+branch is the one to use.
 
 You can build it by following
 the instructions in the
